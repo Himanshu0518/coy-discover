@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+# local SQLite state (recreated and seeded on first run)
+/data
+
 # next.js
 /.next/
 /out/

@@ -1,23 +1,6 @@
 import { NO_STORE_HEADERS, jsonError } from "@/lib/http";
+import { swipeRequestSchema } from "@/lib/schemas";
 import { StoreError, getStore } from "@/lib/store";
-import type { SwipeDirection } from "@/lib/types";
-
-interface SwipePayload {
-  profileId: string;
-  direction: SwipeDirection;
-}
-
-function parsePayload(body: unknown): SwipePayload | null {
-  if (typeof body !== "object" || body === null) return null;
-
-  const { profileId, direction } = body as Record<string, unknown>;
-  const id = typeof profileId === "string" ? profileId.trim() : "";
-
-  if (!id || id.length > 64) return null;
-  if (direction !== "like" && direction !== "pass") return null;
-
-  return { profileId: id, direction };
-}
 
 /**
  * POST /swipe
@@ -33,13 +16,13 @@ export async function POST(request: Request) {
     return jsonError(400, "Request body must be valid JSON");
   }
 
-  const payload = parsePayload(body);
-  if (!payload) {
+  const parsed = swipeRequestSchema.safeParse(body);
+  if (!parsed.success) {
     return jsonError(400, 'Expected { profileId: string, direction: "like" | "pass" }');
   }
 
   try {
-    const outcome = getStore().recordSwipe(payload.profileId, payload.direction);
+    const outcome = getStore().recordSwipe(parsed.data.profileId, parsed.data.direction);
     return Response.json(outcome, { headers: NO_STORE_HEADERS });
   } catch (error) {
     if (error instanceof StoreError) {

@@ -35,22 +35,33 @@ CREATE TABLE IF NOT EXISTS matches (
 );
 `;
 
-function seedIfEmpty(db: DatabaseSync): void {
-  const row = db.prepare("SELECT COUNT(*) AS count FROM profiles").get() as
-    | { count: number }
-    | undefined;
-  if (!row || Number(row.count) > 0) return;
-
-  const insert = db.prepare(
+/**
+ * Upserts the seed on every open rather than only seeding an empty table.
+ * Demo content (photos, bios, interest tags) can then evolve without throwing
+ * away a reviewer's swipes and matches, and a database created by an older
+ * build never points at deleted assets.
+ */
+function syncSeedProfiles(db: DatabaseSync): void {
+  const upsert = db.prepare(
     `INSERT INTO profiles
       (id, name, age, city, college, bio, interests, photo, likes_you, sort_order)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       name = excluded.name,
+       age = excluded.age,
+       city = excluded.city,
+       college = excluded.college,
+       bio = excluded.bio,
+       interests = excluded.interests,
+       photo = excluded.photo,
+       likes_you = excluded.likes_you,
+       sort_order = excluded.sort_order`,
   );
 
   db.exec("BEGIN IMMEDIATE");
   try {
     seedProfiles.forEach((profile, index) => {
-      insert.run(
+      upsert.run(
         profile.id,
         profile.name,
         profile.age,
@@ -72,7 +83,7 @@ function seedIfEmpty(db: DatabaseSync): void {
 
 /**
  * Opens (and creates if needed) a SQLite database, applies the schema and
- * seeds the 32 demo profiles on a fresh install.
+ * keeps the 32 demo profiles in sync with the seed file.
  */
 export function openDatabase(filename: string): DatabaseSync {
   if (filename !== ":memory:") {
@@ -86,6 +97,6 @@ export function openDatabase(filename: string): DatabaseSync {
     db.exec("PRAGMA synchronous = NORMAL;");
   }
   db.exec(SCHEMA);
-  seedIfEmpty(db);
+  syncSeedProfiles(db);
   return db;
 }

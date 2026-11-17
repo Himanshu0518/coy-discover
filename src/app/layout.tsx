@@ -1,27 +1,32 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import TabBar from "@/components/TabBar";
+import { DM_Sans, Outfit } from "next/font/google";
+import { Suspense } from "react";
+import BottomNav from "@/components/bottom-nav";
+import Providers from "@/components/providers";
+import SiteHeader from "@/components/site-header";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const outfit = Outfit({
+  variable: "--font-outfit",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: { default: "Coy · Discover", template: "%s · Coy" },
+  title: { default: "Coy · Discover someone new", template: "%s · Coy" },
   description:
-    "A swipe-based Discover tab built as a standalone demo alongside Coy's double-blind crush experience.",
+    "A double-blind campus discovery experience. Swipe, find your people, and only ever see a match when it's mutual.",
   applicationName: "Coy Discover",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#faf6f0",
+  themeColor: "#FFFDF9",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -29,12 +34,17 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full`}>
+    <html lang="en" className={`${outfit.variable} ${dmSans.variable}`}>
       <body className="min-h-dvh bg-cream font-sans text-ink antialiased">
-        <div className="relative mx-auto flex min-h-dvh w-full max-w-[440px] flex-col border-ink/[0.06] bg-cream/60 sm:border-x">
-          {children}
-          <TabBar />
-        </div>
+        <Providers>
+          <div className="flex min-h-dvh flex-col">
+            <SiteHeader />
+            <div className="flex flex-1 flex-col">{children}</div>
+            <Suspense fallback={<div className="h-[62px] md:hidden" />}>
+              <BottomNav />
+            </Suspense>
+          </div>
+        </Providers>
       </body>
     </html>
   );

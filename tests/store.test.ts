@@ -58,9 +58,26 @@ describe("Coy discover backend", () => {
       assert.ok(profile.college.length > 0);
       assert.ok(profile.bio.length > 0);
       assert.ok(profile.interests.length >= 1);
-      assert.ok(profile.photo.startsWith("/avatars/"));
+      assert.ok(profile.photo.startsWith("/portraits/"));
       assert.deepEqual(Object.keys(profile).sort(), PROFILE_KEYS);
     }
+  });
+
+  it("refreshes seed content on an existing database without losing swipes", () => {
+    store.recordSwipe("p01", "pass");
+    db.prepare("UPDATE profiles SET photo = '/old.jpg', bio = 'stale' WHERE id = 'p01'").run();
+
+    reopen();
+
+    const profile = store.getFeed().find((item) => item.id === "p02");
+    assert.equal(profile?.photo, "/portraits/p02.jpg");
+    assert.ok(!store.getFeed().some((item) => item.id === "p01"));
+
+    const row = db.prepare("SELECT photo, bio FROM profiles WHERE id = 'p01'").get() as
+      | { photo: string; bio: string }
+      | undefined;
+    assert.equal(row?.photo, "/portraits/p01.jpg");
+    assert.notEqual(row?.bio, "stale");
   });
 
   it("starts with demo profiles who already like the user", () => {

@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
-import DiscoverClient from "@/components/DiscoverClient";
+import { Suspense } from "react";
+import DiscoverClient from "@/components/discover/discover-client";
+import DiscoverSkeleton from "@/components/discover/discover-skeleton";
 
 export const metadata: Metadata = {
   title: "Discover",
 };
 
 export default function DiscoverPage() {
-  return <DiscoverClient />;
+  return (
+    <Suspense fallback={<DiscoverSkeleton />}>
+      <DiscoverClient />
+    </Suspense>
+  );
 }

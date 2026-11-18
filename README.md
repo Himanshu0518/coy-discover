@@ -1,57 +1,71 @@
 # Coy · Discover
 
-A production-quality, mobile-first discovery experience built for the Coy SDE intern assignment. Coy's **Home** tab stays an intentional placeholder; the product lives in **Discover**.
+A production-quality, mobile-first discovery experience built for the Coy SDE intern assignment.  
+Part A of the assignment — product thinking, two feature proposals — is in **[PART_A.md](./PART_A.md)**.
 
-Part A of the assignment is in **[PART_A.md](./PART_A.md)**.
+---
 
-## The experience
+## What's built
 
-- **32 seeded students** with photographic portraits, ages, cities, colleges, bios and interest tags. Ten have already liked the logged-in user, so mutual matches happen during a demo.
-- **A premium swipe deck**: large editorial cards with a stacked preview, pointer drag and rotation, LIKE / NOPE stamps, spring-back, fly-out exits, keyboard shortcuts, and circular pass/like actions with hard neo-brutalist shadows.
-- **Strictly mutual matching**: a match screen appears only after both people like each other. A one-sided like is never exposed by the UI or any response.
-- **A real Matches section**: a photographic grid of every mutual match, matched times, an empty state, and a way back into Discover.
-- **Loading, error and empty states** for the feed, matches, swipes and resets, with toast feedback for failures.
-- **Persistence** in SQLite, so swipes and matches survive reloads and server restarts.
-- **Responsive shell**: brand header, Home / Discover / Matches tabs with a live match badge, profile chip, and a proper bottom tab bar on phones. Tablets and desktops use the top navigation.
+| Area | What you get |
+|---|---|
+| **Discover feed** | 32 seeded students with portraits, ages, cities, colleges, bios, and interest tags |
+| **Swipe deck** | Drag with rotation, LIKE / NOPE stamps, spring-back, fly-out exits, stacked card preview, keyboard shortcuts |
+| **Matching** | Strictly mutual — a match screen appears only when both sides have liked each other |
+| **Matches section** | Photographic grid of every mutual match with timestamps, empty / error / loading states |
+| **Persistence** | SQLite — swipes and matches survive reloads and server restarts |
+| **Responsive shell** | Top nav on tablet / desktop, bottom tab bar on mobile, live match badge on both |
+| **States** | Skeleton loaders, error states with retry, empty state when the feed is exhausted, toast feedback for every failure |
 
-## Stack
-
-- **Next.js 16 App Router + React 19 + TypeScript.** The brief requires literal `GET /feed`, `POST /swipe` and `GET /matches` routes, and the app was already built around Next route handlers. Keeping Next avoids adding a second Express server or breaking those contracts.
-- **Tailwind CSS v4** for the design system and responsive layout.
-- **Motion** (`motion/react`) for gestures, card exits, view transitions, match confetti and staggered match cards.
-- **TanStack Query** for feed/matches state and the swipe mutation.
-- **Zod** for request validation in `POST /swipe` and response validation in the browser.
-- **Radix Dialog** with shadcn-style primitives, **Sonner** for toasts, and **Lucide** for icons.
+---
 
 ## Quick start
 
-Requires **Node.js 22.5+** because the app uses the built-in `node:sqlite` driver. Node 24 is recommended.
+Requires **Node.js 22.5+** (uses the built-in `node:sqlite` driver). Node 24 is recommended.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000/discover](http://localhost:3000/discover). The first request creates `data/coy.db` and seeds the 32 profiles. The file is gitignored; use **Reset demo** or `POST /reset` to start the demo over.
+Open [http://localhost:3000/discover](http://localhost:3000/discover).
+
+The first request creates `data/coy.db` and seeds 32 profiles. The file is gitignored. Use the **Reset demo** button in the app, or `POST /reset`, to start over.
 
 ### Scripts
 
-| Script | Purpose |
-| --- | --- |
+| Command | Purpose |
+|---|---|
 | `npm run dev` | Start the Next.js dev server |
-| `npm run build` | Production build + typecheck |
-| `npm start` | Run the production build |
-| `npm run lint` | ESLint, including React Compiler rules |
+| `npm run build` | Production build + type-check |
+| `npm start` | Serve the production build |
+| `npm run lint` | ESLint (including React Compiler rules) |
 | `npm run typecheck` | TypeScript, no emit |
-| `npm test` | Backend tests (`node:test` through `tsx`) |
+| `npm test` | 12 backend tests via `node:test` + `tsx` |
+
+---
+
+## Stack
+
+| Layer | Choice | Reason |
+|---|---|---|
+| Framework | **Next.js 16 App Router + React 19 + TypeScript** | Assignment requires literal `GET /feed`, `POST /swipe`, `GET /matches` routes; Next route handlers serve those directly without a second server |
+| Styling | **Tailwind CSS v4** | Design system, responsive utilities, mobile-first layout |
+| Animation | **Motion (`motion/react`)** | Drag gestures, card exits, match celebration, staggered grids |
+| Data fetching | **TanStack Query v5** | Feed / matches state, optimistic swipe mutation, automatic refetch |
+| Validation | **Zod v4** | Server-side request validation on `POST /swipe`, client-side response validation on every fetch |
+| UI primitives | **Radix Dialog**, **Sonner** (toasts), **Lucide** (icons) | Accessible dialog, unstyled toasts, consistent icon set |
+| Database | **SQLite (`node:sqlite`)** | Zero-config persistence, no external service required for the demo |
+
+---
 
 ## API
 
-All endpoints return JSON and set `Cache-Control: no-store`.
+All endpoints return `application/json` and set `Cache-Control: no-store`.
 
 ### `GET /feed`
 
-Profiles the logged-in user has not swiped on, in seed order.
+Returns profiles the logged-in user has not yet swiped on, in seed order.
 
 ```json
 {
@@ -72,18 +86,20 @@ Profiles the logged-in user has not swiped on, in seed order.
 
 ### `POST /swipe`
 
+**Request**
 ```json
 { "profileId": "p03", "direction": "like" }
 ```
 
+**Response**
 ```json
-{ "match": true, "duplicate": false, "matchProfile": { "id": "p03", "name": "Meera" } }
+{ "match": true, "duplicate": false, "matchProfile": { "id": "p03", "name": "Meera", "photo": "/portraits/p03.jpg" } }
 ```
 
 - `direction` must be `"like"` or `"pass"`.
-- `match` is true only when the user likes someone who had already liked them.
-- A repeated swipe is idempotent: it returns `duplicate: true` with the existing match state and never creates a second match.
-- Unknown profile → `404`; malformed body → `400`.
+- `match: true` only when the user likes someone who has already liked them. A pass on a one-sided liker always returns `match: false`.
+- Repeated swipes are idempotent: `duplicate: true` is returned with the existing match state; no second match is created.
+- Unknown profile → `404`. Malformed or missing body → `400`.
 
 ### `GET /matches`
 
@@ -92,76 +108,136 @@ Profiles the logged-in user has not swiped on, in seed order.
   "matches": [
     {
       "matchedAt": "2026-11-18T12:34:56.000Z",
-      "profile": { "id": "p03", "name": "Meera", "photo": "/portraits/p03.jpg" }
+      "profile": {
+        "id": "p03",
+        "name": "Meera",
+        "age": 21,
+        "city": "Mumbai",
+        "college": "St. Xavier's College",
+        "bio": "...",
+        "interests": ["..."],
+        "photo": "/portraits/p03.jpg"
+      }
     }
   ]
 }
 ```
 
-Only mutual matches exist here. There is no endpoint that returns who liked the user.
+Only mutual matches appear here. There is no endpoint, field, or count that reveals one-sided likes.
 
-### `POST /reset`
+Ordered newest-first by `matched_at`.
 
-Demo helper, not part of the assignment's required surface. Clears swipes and matches, leaving the seeded profiles intact. Returns `{ "ok": true, "remaining": 32 }`.
+### `POST /reset` *(demo helper)*
 
-## How the double blind is enforced
+Clears swipes and matches, leaving the seeded profiles intact.
 
-`likes_you` is a private column on `profiles`. It is read in exactly one place — the match decision inside `recordSwipe` — and every response goes through `toPublicProfile`, which drops it.
+```json
+{ "ok": true, "remaining": 32 }
+```
 
-- `GET /feed` only selects rows with no swipe, so a profile never comes back after a like or a pass.
-- `GET /matches` joins the `matches` table, which is only written when `direction === "like" && profile.likes_you === 1`.
-- Swipes and matches are unique per profile in SQLite, so retries and concurrent requests cannot duplicate them.
-- The UI never imports the seed file, so the private `likesYou` flags cannot leak into the client bundle. It only knows the total profile count.
-- Tests assert that serialized feed and swipe responses never contain `likesYou`, `likes_you`, or the id of a one-sided liker.
+---
+
+## How the double-blind is enforced
+
+The core invariant: **a like is never revealed unless it is mutual — not through a count, not through a flag, not through a paid upgrade.**
+
+- `likes_you` is a private column on the `profiles` table. It is read in exactly one place: the match condition inside `recordSwipe`.
+- Every API response goes through `toPublicProfile`, which drops `likes_you`. There is no other serialization path.
+- `GET /feed` excludes profiles with an existing swipe row in either direction, so a profile never reappears after a like or a pass.
+- `GET /matches` queries the `matches` table, which is written only when `direction === "like" && likes_you === 1`.
+- A `BEGIN IMMEDIATE` SQLite transaction wraps every swipe, preventing a concurrent-request race condition.
+- A unique-primary-key constraint on `swipes(profile_id)` guarantees exactly-once writes even under retries.
+- The seed file (`profiles.seed.ts`) is imported only by `src/lib/db.ts` (a server-only module). The client bundle never sees `likesYou` flags; it only knows the total profile count.
+- 12 backend tests assert that serialized feed and swipe responses never contain `likesYou`, `likes_you`, or the id of a one-sided liker, and that a pass on a liker is never a match.
+
+---
+
+## Swipe experience
+
+| Interaction | Behaviour |
+|---|---|
+| **Drag** | Card rotates ±15° as it moves; LIKE stamp fades in on the right, NOPE on the left |
+| **Release past threshold** | Card flies off screen (0.28 s), API call fires, next card rises |
+| **Release before threshold** | Card springs back to centre (`stiffness: 420, damping: 32`) |
+| **Pass / Like buttons** | Identical to drag commit; card exits in the appropriate direction |
+| **Keyboard** | `→` / `ArrowRight` = like, `←` / `ArrowLeft` = pass; blocked while a dialog is open or a form element is focused |
+| **Stacked preview** | The next two cards are visible behind the top card, offset by scale and y-position |
+| **While match dialog is open** | Deck is fully disabled (drag and buttons) until the dialog is dismissed |
+
+---
+
+## Matching flow
+
+```
+POST /swipe { profileId, direction: "like" }
+  │
+  ├─ profile not found?         → 404
+  ├─ already swiped?            → { duplicate: true, match: <existing state> }
+  │
+  ├─ BEGIN IMMEDIATE
+  │   INSERT INTO swipes
+  │   if likes_you = 1 → INSERT OR IGNORE INTO matches
+  │   COMMIT
+  │
+  └─ { match: true/false, duplicate: false, matchProfile? }
+```
+
+On `match: true`, the client opens the match dialog (both portraits, heart animation) and optimistically prepends the new match to the matches cache. The dialog is the only moment the other person's name is shown — it is never hinted at before this point.
+
+---
 
 ## Project structure
 
-```text
+```
 src/
   app/
-    page.tsx                 Home placeholder
-    discover/page.tsx        Discover + Matches views
-    layout.tsx               Fonts, providers, header, mobile nav
-    feed/route.ts            GET /feed
-    swipe/route.ts           POST /swipe (Zod-validated)
-    matches/route.ts         GET /matches
-    reset/route.ts           POST /reset (demo)
+    page.tsx                Home placeholder
+    discover/page.tsx       Discover + Matches views (Suspense boundary)
+    layout.tsx              Fonts, providers, header, mobile nav
+    feed/route.ts           GET /feed
+    swipe/route.ts          POST /swipe  (Zod-validated)
+    matches/route.ts        GET /matches
+    reset/route.ts          POST /reset  (demo helper)
   components/
-    site-header.tsx          Brand, top navigation, match badge, profile
-    bottom-nav.tsx           Phone tab bar
-    providers.tsx            TanStack Query + Sonner
-    ui/                      Button and Radix dialog primitives
+    site-header.tsx         Brand, top nav, live match badge, profile chip
+    bottom-nav.tsx          Mobile tab bar (md:hidden)
+    providers.tsx           TanStack Query + Sonner
+    ui/                     Button + Radix Dialog primitives
     discover/
-      discover-client.tsx    Query orchestration, view switching, matching
-      swipe-card.tsx         Drag, stamps, exits, keyboard, actions
-      swipe-deck.tsx         Top card + stack previews
-      profile-card.tsx       Editorial profile card
-      match-dialog.tsx       Celebration + both portraits
-      matches-view.tsx       Matches grid, empty/error/loading states
-      discover-aside.tsx     Privacy promise + recent matches
-      empty-state.tsx        End-of-feed state
-      *-skeleton.tsx         Loading states
+      discover-client.tsx   Query orchestration, view switching, match state
+      swipe-card.tsx        Drag, stamps, exits, keyboard, action buttons
+      swipe-deck.tsx        Top card + two stacked previews
+      profile-card.tsx      Editorial profile card layout
+      match-dialog.tsx      Celebration screen (portraits + heart burst)
+      matches-view.tsx      Match grid, empty / error / loading states
+      discover-aside.tsx    Desktop sidebar — privacy promise + recent matches
+      empty-state.tsx       End-of-feed state with reset and matches links
+      deck-skeleton.tsx     Loading state for the swipe deck
+      discover-skeleton.tsx Full-page loading skeleton
   lib/
-    types.ts                 Shared domain types
-    profiles.seed.ts         32 profiles (with the private likesYou flag)
-    db.ts                    SQLite schema, seed upsert
-    store.ts                 Feed, swipe/match transactions, reset, singleton
-    schemas.ts               Shared Zod schemas
-    api.ts                   Validated client fetchers
-    queries.ts               TanStack Query hooks
-public/portraits/            32 locally hosted portraits + the user's photo
-tests/store.test.ts          12 backend tests
+    types.ts                Shared domain types (PublicProfile, SwipeOutcome, …)
+    profiles.seed.ts        32 profiles including the private likesYou flag
+    db.ts                   SQLite schema creation + seed upsert
+    store.ts                Feed, swipe/match transactions, reset, singleton
+    schemas.ts              Shared Zod schemas
+    api.ts                  Validated client fetchers
+    queries.ts              TanStack Query hooks + mutations
+public/
+  portraits/                32 locally hosted 4:5 portraits + me.jpg
+tests/
+  store.test.ts             12 backend tests (node:test)
 ```
 
-The store takes a `DatabaseSync` handle, so tests run against a throwaway SQLite file. `getStore()` is the singleton used by route handlers and is cached on `globalThis` across dev-server reloads.
+### Key architectural notes
 
-`openDatabase()` **upserts** the seed on every open. Demo content can evolve without discarding a reviewer's swipes, and a database created by an older build never points at deleted assets. Swipes and matches live in separate tables and are untouched by the upsert.
+- **Store singleton.** `getStore()` is cached on `globalThis` so dev-server hot reloads reuse the same SQLite connection rather than leaking file handles.
+- **Seed upsert.** `openDatabase()` upserts the seed on every open. Demo content can evolve without discarding a reviewer's existing swipes, and a database created by an older build never points at a deleted asset. Swipes and matches are untouched.
+- **In-memory fallback.** If the database file cannot be opened (read-only serverless filesystem), the app logs a warning and falls back to `:memory:`. The demo still runs; persistence lasts only as long as the process.
+- **Optimistic UI.** `handleSwiped` removes the card from the feed cache immediately after the animation completes and the API responds. On a match, the new match is prepended to the matches cache without waiting for a refetch.
 
-If the database file cannot be opened (for example on a read-only serverless filesystem), the app logs a warning and falls back to an in-memory database so the demo still runs — persistence then lasts only as long as the process.
+---
 
 ## Verification
-
-Last run:
 
 ```bash
 npm test        # 12 passing backend tests
@@ -170,31 +246,40 @@ npm run typecheck
 npm run build   # production build succeeds
 ```
 
-A headless-Chrome pass against the production server covered:
+Manual browser pass on production build:
 
-- **390 × 844 phone**: drag-to-pass changes the card, like → match opens the modal, Matches tab shows the match, reload preserves it, and the action row sits above the bottom tab bar.
-- **820 × 1180 tablet** and **1440 × 900 desktop**: card and actions fit, tablet uses the top navigation without a duplicate bottom bar.
-- **No console errors, page errors or HTTP 4xx responses** during the pass.
+| Viewport | Checks |
+|---|---|
+| **390 × 844** (phone) | Drag-to-pass changes the card; like on a pre-liker opens the match dialog; Matches tab shows the match; reload preserves it; action row sits above the bottom tab bar |
+| **820 × 1180** (tablet) | Card and actions fit; top navigation shown; no duplicate bottom bar |
+| **1440 × 900** (desktop) | Aside panel visible; nav pill; match badge updates after a swipe |
 
-The browser pass was a development check; the reusable automated suite is the 12 backend tests. Add API/UI tests before treating the UI as regression-covered.
+No console errors, page errors, or HTTP 4xx responses during the pass.
 
-## Photo credits
-
-Portraits are sourced from [Pexels](https://www.pexels.com) and stored locally in `public/portraits`, so the demo makes no third-party image requests at runtime. Pexels photos are free to use under the Pexels license. The included images are mock profile data for this assignment.
-
-## Deployment notes
-
-SQLite needs a **persistent, writable disk**:
-
-- Railway, Render, Fly.io, or a VPS with a volume are a good fit. Point `COY_DB_PATH` at the mounted volume.
-- Vercel's serverless filesystem is read-only; the app falls back to an in-memory store, so swipes would not survive a cold start. To deploy there, swap the store for Postgres (the `Store` interface is the only thing the routes know about).
-
-No authentication is included, by design: the brief assumes a single logged-in user.
+---
 
 ## Design decisions
 
-- **Exact API paths.** The brief names `GET /feed`, `POST /swipe`, and `GET /matches`, so those are the real routes rather than `/api/*` equivalents.
-- **Matches is both a view and a navigation destination.** It lives inside the Discover experience at `/discover?view=matches`, with Home / Discover / Matches in both the top and bottom navigation.
-- **Local photography.** Portraits are pre-cropped 4:5 files committed to the repo, so the deck looks consistent and the demo has no image API keys or runtime hotlinking.
-- **No undo.** The brief says a swiped profile must never reappear; adding undo would contradict that rule and the matching model.
-- **One-sided likes stay private.** There is no "who liked you" list, hint, or count anywhere in the product.
+- **Exact API paths.** The brief names `GET /feed`, `POST /swipe`, and `GET /matches`, so those are the real routes — not `/api/*` wrappers.
+- **Matches lives inside Discover.** It is a view switch at `/discover?view=matches`, not a separate page. Home / Discover / Matches each appear in both the top nav and the bottom tab bar.
+- **Local photography.** 32 portraits are pre-cropped 4:5 files committed to the repo. The deck looks consistent and the demo makes zero third-party image requests at runtime.
+- **No undo.** The brief states a swiped profile must never reappear; undo would contradict that rule and the matching model.
+- **One-sided likes stay private.** There is no "who liked you" list, hint, or count anywhere in the product — not even after a pass.
+- **`TOTAL_PROFILES = 32` constant.** The feed's total count is not returned by `GET /feed`. The client derives progress from this constant. It is intentionally server-authoritative; if the seed ever changes, update this constant alongside it.
+
+---
+
+## Deployment
+
+SQLite requires a **persistent, writable disk**:
+
+- **Railway, Render, Fly.io, or any VPS with a volume** are a natural fit. Set `COY_DB_PATH` to point at the mounted path.
+- **Vercel** has a read-only serverless filesystem. The app falls back to an in-memory store (swipes will not survive a cold start). To deploy on Vercel, replace the SQLite store with Postgres — the `Store` interface in `store.ts` is the only thing route handlers depend on.
+
+No authentication is included by design; the brief assumes a single logged-in user.
+
+---
+
+## Photo credits
+
+Portraits are sourced from [Pexels](https://www.pexels.com) and stored locally in `public/portraits/`, so no third-party image requests are made at runtime. Pexels photos are free to use under the [Pexels License](https://www.pexels.com/license/). The included images are mock profile data for this assignment only.
